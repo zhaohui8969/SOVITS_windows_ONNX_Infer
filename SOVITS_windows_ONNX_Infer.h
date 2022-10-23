@@ -4,5 +4,13 @@
 #pragma once
 
 #include <iostream>
+#include <string>
 
-// TODO: 在此处引用程序需要的其他标头。
+struct STRUCT_PROJECT_CONFIG {
+	wchar_t* sONNXModelFile;
+	std::string sONNXInputTensorName;
+	std::string sONNXOutputTensorName;
+	std::string sBindIpAddress;
+	std::string sBindPort;
+
+};
