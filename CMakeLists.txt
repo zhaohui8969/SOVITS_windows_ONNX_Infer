@@ -17,6 +17,8 @@ target_include_directories(${PROJECT_NAME}
 
 #target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/lib/onnxruntime.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/lib/onnxruntime_providers_cuda.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/lib/onnxruntime_providers_shared.lib)
 
 set(fmt_DIR D:/codes/vcpkg/packages/fmt_x64-windows/share/fmt)
 find_package(fmt CONFIG REQUIRED)
