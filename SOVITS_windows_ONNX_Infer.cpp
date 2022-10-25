@@ -7,13 +7,19 @@
 #include <algorithm>
 #include "SOVITS_windows_ONNX_Infer.h"
 #include <string>
+#include "spdlog/spdlog.h"
+#include <math.h>
+#include <numeric>
+#include <chrono>
+using namespace std::chrono;
 
 #pragma comment(lib, "onnxruntime.lib")
 using namespace std;
 
 int main()
 {
-
+	LOG_INFO("程序启动!");
+	LOG_INFO("读取配置文件...");
 	STRUCT_PROJECT_CONFIG projectConfig;
 	wchar_t sModelfile[100];
 	wcscpy(sModelfile, L"hubert.onnx");
@@ -21,8 +27,10 @@ int main()
 
 	Ort::Env env{ ORT_LOGGING_LEVEL_WARNING, "SOVITS_windows_ONNX_Infer" };
 
-	Ort::Session session_{ env, projectConfig.sONNXModelFile, Ort::SessionOptions{nullptr} };
+	LOG_INFO("载入HuBERT ONNX模型...");
+	Ort::Session hubertORTSession{ env, projectConfig.sONNXModelFile, Ort::SessionOptions{nullptr} };
 
+	// HuBERT
 	//  source = {"source":np.expand_dims(np.expand_dims(wav16,0),0)}
 	//	units = np.array(hubertsession.run(['embed'], source)[0])
 
@@ -41,7 +49,32 @@ int main()
 	const char* output_names[] = { "embed" };
 
 	Ort::RunOptions runOptions;
-	session_.Run(runOptions, input_names, &inputTensorSource, 1, output_names, &inputTensorEmbed, 1);
 
+	std::vector<long long> fUseTimeList;
+	milliseconds  tStart;
+	milliseconds tUseTime;
+	for (int i = 0; i < 20; i++) {
+		tStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+		hubertORTSession.Run(runOptions, input_names, &inputTensorSource, 1, output_names, &inputTensorEmbed, 1);
+		tUseTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()) - tStart;
+		fUseTimeList.push_back(tUseTime.count());
+		LOG_INFO("单次推理耗时:%ldms", tUseTime.count());
+	}
+	long fAvgUseTime = std::accumulate(fUseTimeList.begin(), fUseTimeList.end(), 0) / fUseTimeList.size();
+	LOG_INFO("平均耗时:%ldms", fAvgUseTime);
+
+	
+
+	// Get F0
+
+	// VITS
+	LOG_INFO("载入VITS ONNX模型...");
+
+
+
+
+	// HTTP SERVER
+	spdlog::info("启动HTTP服务");
+	spdlog::info("程序退出!");
 	return 0;
 }

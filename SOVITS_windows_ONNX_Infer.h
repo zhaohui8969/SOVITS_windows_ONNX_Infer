@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstdarg>
 
 struct STRUCT_PROJECT_CONFIG {
 	wchar_t* sONNXModelFile;
@@ -14,3 +15,6 @@ struct STRUCT_PROJECT_CONFIG {
 	std::string sBindPort;
 
 };
+
+#define LOG_INFO(...)  \
+ do{char buf[256]; snprintf(buf, 256,__VA_ARGS__);  spdlog::info(buf);}while(0)

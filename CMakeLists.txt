@@ -16,4 +16,12 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include/onnxruntime)
 
 #target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
-target_link_libraries(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/lib/onnxruntime.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/lib/onnxruntime.lib)
+
+set(fmt_DIR D:/codes/vcpkg/packages/fmt_x64-windows/share/fmt)
+find_package(fmt CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt-header-only)
+
+set(spdlog_DIR D:/codes/vcpkg/packages/spdlog_x64-windows/share/spdlog)
+find_package(spdlog CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
