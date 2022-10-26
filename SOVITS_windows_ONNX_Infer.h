@@ -6,6 +6,10 @@
 #include <iostream>
 #include <string>
 #include <cstdarg>
+#include <dxgi.h>
+#include <onnxruntime_cxx_api.h>
+
+#pragma comment(lib, "dxgi.lib")
 
 struct STRUCT_PROJECT_CONFIG {
 	wchar_t* sONNXModelFile;
@@ -18,3 +22,5 @@ struct STRUCT_PROJECT_CONFIG {
 
 #define LOG_INFO(...)  \
  do{char buf[256]; snprintf(buf, 256,__VA_ARGS__);  spdlog::info(buf);}while(0)
+
+long long func_get_timestamp();
