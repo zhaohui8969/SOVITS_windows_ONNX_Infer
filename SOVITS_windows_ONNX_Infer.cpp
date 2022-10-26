@@ -1,24 +1,14 @@
 ﻿// SOVITS_windows_ONNX_Infer.cpp: 定义应用程序的入口点。
-//
-#define UNICODE
-#define COBJMACROS
+
 #include "SOVITS_windows_ONNX_Infer.h"
-#include "providers.h"
-#include <array>
-#include <cmath>
-#include <algorithm>
-#include <string>
+#include "onnxruntime/providers.h"
 #include "spdlog/spdlog.h"
-#include <math.h>
 #include <numeric>
 #include <chrono>
 #include "AudioFile.h"
-//#include "httplib.h"
 #include "samplerate.h"
 
 using namespace std::chrono;
-
-
 using namespace std;
 
 const OrtApi* g_ort = NULL;

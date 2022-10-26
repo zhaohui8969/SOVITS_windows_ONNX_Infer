@@ -3,11 +3,8 @@
 
 #pragma once
 
-#include <iostream>
-#include <string>
-#include <cstdarg>
 #include <dxgi.h>
-#include <onnxruntime_cxx_api.h>
+#include <onnxruntime/onnxruntime_cxx_api.h>
 
 #pragma comment(lib, "dxgi.lib")
 
