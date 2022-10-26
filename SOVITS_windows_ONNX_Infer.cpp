@@ -308,44 +308,6 @@ int64_t func_get_shape_elements_size(std::vector<int64_t> shape) {
 	return std::reduce(shape.begin(), shape.end(), 1, func_bin_op_dot);
 }
 
-std::string http_log(const Request& req, const Response& res)
-{
-	std::string s;
-	char buf[BUFSIZ];
-
-	s += "================================\n";
-
-	snprintf(buf, sizeof(buf), "%s %s %s", req.method.c_str(),
-		req.version.c_str(), req.path.c_str());
-	s += buf;
-
-	std::string query;
-	for (auto it = req.params.begin(); it != req.params.end(); ++it)
-	{
-		const auto& x = *it;
-		snprintf(buf, sizeof(buf), "%c%s=%s",
-			(it == req.params.begin()) ? '?' : '&', x.first.c_str(),
-			x.second.c_str());
-		query += buf;
-	}
-	snprintf(buf, sizeof(buf), "%s\n", query.c_str());
-	s += buf;
-
-	s += "--------------------------------\n";
-
-	snprintf(buf, sizeof(buf), "%d %s\n", res.status, res.version.c_str());
-	s += buf;
-
-	if (!res.body.empty())
-	{
-		s += res.body;
-	}
-
-	s += "\n";
-
-	return s;
-}
-
 int main()
 {
 	LOG_INFO("程序启动!");
@@ -643,6 +605,7 @@ int main()
 		string contentType = "audio/x-wav";
 		res.set_content(returnData, contentType);
 		});
+
 	svr.listen("0.0.0.0", 6842);
 
 	LOG_INFO("程序退出!");
