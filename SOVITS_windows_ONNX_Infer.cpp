@@ -1,8 +1,10 @@
 ﻿// SOVITS_windows_ONNX_Infer.cpp: 定义应用程序的入口点。
 
+#include "httplib.h"
 #include "SOVITS_windows_ONNX_Infer.h"
 #include "onnxruntime/providers.h"
 #include "spdlog/spdlog.h"
+#include <string.h>
 #include <numeric>
 #include <chrono>
 #include "AudioFile.h"
@@ -10,13 +12,16 @@
 
 using namespace std::chrono;
 using namespace std;
+using namespace httplib;
 
 const OrtApi* g_ort = NULL;
+httplib::Server svr;
 const int iHubertDim = 256;
 const int iHubertInputSampleRate = 16000;
 const int iVITSOutputSampleRate = 32000;
 const int iFinalOutSampleRate = 44100;
 const int iNumberOfChanel = 1;
+const size_t DATA_CHUNK_SIZE = 4;
 
 /*
 void func_inspect_session(Ort::Session& session) {
@@ -303,6 +308,44 @@ int64_t func_get_shape_elements_size(std::vector<int64_t> shape) {
 	return std::reduce(shape.begin(), shape.end(), 1, func_bin_op_dot);
 }
 
+std::string http_log(const Request& req, const Response& res)
+{
+	std::string s;
+	char buf[BUFSIZ];
+
+	s += "================================\n";
+
+	snprintf(buf, sizeof(buf), "%s %s %s", req.method.c_str(),
+		req.version.c_str(), req.path.c_str());
+	s += buf;
+
+	std::string query;
+	for (auto it = req.params.begin(); it != req.params.end(); ++it)
+	{
+		const auto& x = *it;
+		snprintf(buf, sizeof(buf), "%c%s=%s",
+			(it == req.params.begin()) ? '?' : '&', x.first.c_str(),
+			x.second.c_str());
+		query += buf;
+	}
+	snprintf(buf, sizeof(buf), "%s\n", query.c_str());
+	s += buf;
+
+	s += "--------------------------------\n";
+
+	snprintf(buf, sizeof(buf), "%d %s\n", res.status, res.version.c_str());
+	s += buf;
+
+	if (!res.body.empty())
+	{
+		s += res.body;
+	}
+
+	s += "\n";
+
+	return s;
+}
+
 int main()
 {
 	LOG_INFO("程序启动!");
@@ -342,7 +385,7 @@ int main()
 	Ort::Session VITSORTSession{ env, L"121_epochs.onnx", sessionOptions };
 	LOG_INFO("载入完成...");
 
-	bool bBenchmark = true;
+	bool bBenchmark = false;
 	if (bBenchmark) {
 		LOG_INFO("跑分...");
 		// HUBERT benchmark
@@ -360,7 +403,7 @@ int main()
 		);
 	}
 
-	bool bLocalTransTest = true;
+	bool bLocalTransTest = false;
 	if (bLocalTransTest) {
 		LOG_INFO("进行本地离线处理测试...");
 		// 从音频文件读取数据
@@ -468,6 +511,140 @@ int main()
 
 	// HTTP SERVER
 	LOG_INFO("启动HTTP服务");
+	svr.set_logger([](const auto& req, const auto& res) {
+		//LOG_INFO(http_log(req, res).c_str());
+		});
+	svr.Get("/", [](const Request& req, Response& res) {
+		res.set_content("SOVITS HTTP推理服务启动成功！", "text/plain");
+		});
+
+	svr.Post("/voiceChangeModel", [&](const auto& req, auto& res) {
+		LOG_INFO("======开始处理======");
+		bool ret;
+		int iPitchChange = 0;
+		int iSampleRate = 0;
+		int iSpeakerId = 0;
+		ret = req.has_file("fPitchChange");
+		if (ret) {
+			iPitchChange = stoi(req.get_file_value("fPitchChange").content);
+		}
+		ret = req.has_file("sampleRate");
+		if (ret) {
+			iSampleRate = stoi(req.get_file_value("sampleRate").content);
+		}
+		ret = req.has_file("sSpeakId");
+		if (ret) {
+			iSpeakerId = stoi(req.get_file_value("sSpeakId").content);
+		}
+
+		string sample = req.get_file_value("sample").content;
+		std::vector<uint8_t> vSample(sample.length());
+		for (int i = 0; i < sample.length(); i++) {
+			vSample[i] = sample[i];
+		}
+
+		AudioFile<double> tmpAudioFile;
+		tmpAudioFile.loadFromMemory(vSample);
+		int sampleRate = tmpAudioFile.getSampleRate();
+		int bitDepth = tmpAudioFile.getBitDepth();
+
+		int numSamples = tmpAudioFile.getNumSamplesPerChannel();
+		double lengthInSeconds = tmpAudioFile.getLengthInSeconds();
+
+		int numChannels = tmpAudioFile.getNumChannels();
+		bool isMono = tmpAudioFile.isMono();
+		bool isStereo = tmpAudioFile.isStereo();
+
+		LOG_INFO("音频长度：%fs", lengthInSeconds);
+
+		long long tStart = func_get_timestamp();
+		// 重采样
+		float* fReSampleInBuffer = (float*)malloc(numSamples * sizeof(float));
+		float* fReSampleOutBuffer = fReSampleInBuffer;
+		int iResampleNumbers = numSamples;
+		for (int i = 0; i < numSamples; i++) {
+			fReSampleInBuffer[i] = tmpAudioFile.samples[0][i];
+		}
+		if (sampleRate != iHubertInputSampleRate) {
+			double fScaleRate = 1.f * iHubertInputSampleRate / sampleRate;
+			iResampleNumbers = fScaleRate * numSamples;
+			fReSampleOutBuffer = (float*)(std::malloc(sizeof(float) * (iResampleNumbers + 128)));
+			func_audio_resample(fReSampleInBuffer, fReSampleOutBuffer, fScaleRate, numSamples, iResampleNumbers);
+		}
+		long long tResampleDone = func_get_timestamp();
+		LOG_INFO("重采样耗时:%lldms", tResampleDone - tStart);
+
+		// 进行HUBERT推理
+		std::vector<float> fHubertTestInput(iResampleNumbers);
+		for (int i = 0; i < iResampleNumbers; i++) {
+			fHubertTestInput[i] = (float)(fReSampleOutBuffer[i]);
+		}
+		std::vector<Ort::Value> hubertReturnTensor;
+		func_hubert_get_embed(
+			hubertORTSession,
+			memory_info,
+			runOptions,
+			fHubertTestInput,
+			&hubertReturnTensor);
+		auto embedValue = hubertReturnTensor.data();
+		int iEmbedTensorSize = func_get_shape_elements_size(embedValue->GetTensorTypeAndShapeInfo().GetShape());
+
+		long long tHubertDone = func_get_timestamp();
+		LOG_INFO("HUBERT推理耗时:%lldms", tHubertDone - tResampleDone);
+
+		// 进行VITS推理
+		float* fEmbedData = embedValue->GetTensorMutableData<float>();
+		std::vector<float> fEmbed(fEmbedData, fEmbedData + iEmbedTensorSize);
+		int iHiddentUnitNum = iEmbedTensorSize / iHubertDim;
+		std::vector<int64_t> iTestLength(1);
+		iTestLength[0] = iHiddentUnitNum;
+		std::vector<int64_t> iTestPitch(iHiddentUnitNum);
+		std::fill(iTestPitch.begin(), iTestPitch.end(), 8 * iPitchChange);
+		std::vector<int64_t> iTestSid(1);
+		iTestSid[0] = iSpeakerId;
+
+		std::vector<Ort::Value> vitsReturnTensor;
+		func_vits_get_audio(
+			VITSORTSession,
+			memory_info,
+			runOptions,
+			fEmbed,
+			iTestLength,
+			iTestPitch,
+			iTestSid,
+			&vitsReturnTensor);
+
+		float* fVITSAudio = vitsReturnTensor.data()->GetTensorMutableData<float>();
+		int iVITSAudioSize = func_get_shape_elements_size(vitsReturnTensor.data()->GetTensorTypeAndShapeInfo().GetShape());
+		std::vector<double> vVITSAudio(fVITSAudio, fVITSAudio + iVITSAudioSize);
+
+		long long tVITSDone = func_get_timestamp();
+		LOG_INFO("VITS推理耗时:%lldms", tVITSDone - tHubertDone);
+		LOG_INFO("pipeline总耗时:%lldms", tVITSDone - tStart);
+
+		AudioFile<double>::AudioBuffer audioBuffer;
+		audioBuffer.resize(iNumberOfChanel);
+		audioBuffer[0].resize(iVITSAudioSize);
+		for (int i = 0; i < iVITSAudioSize; i++) {
+			audioBuffer[0][i] = fVITSAudio[i];
+		}
+
+		AudioFile<double> audioFile;
+		audioFile.shouldLogErrorsToConsole(true);
+		audioFile.setAudioBuffer(audioBuffer);
+		audioFile.setAudioBufferSize(iNumberOfChanel, iVITSAudioSize);
+		audioFile.setBitDepth(24);
+		audioFile.setSampleRate(iVITSOutputSampleRate);
+		// 保存音频文件到内存
+		std::vector<uint8_t> vModelInputMemoryBuffer;
+		audioFile.saveToWaveMemory(&vModelInputMemoryBuffer);
+
+		string returnData(vModelInputMemoryBuffer.data(), vModelInputMemoryBuffer.data() + vModelInputMemoryBuffer.size());
+		string contentType = "audio/x-wav";
+		res.set_content(returnData, contentType);
+		});
+	svr.listen("0.0.0.0", 6842);
+
 	LOG_INFO("程序退出!");
 
 	// Get F0
