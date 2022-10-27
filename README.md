@@ -1,11 +1,14 @@
 # SOVITS_windows_ONNX_Infer
 
+分发地址：[https://github.com/zhaohui8969/SOVITS_windows_ONNX_Infer](https://github.com/zhaohui8969/SOVITS_windows_ONNX_Infer)
+
 SOVITS推理后端的Windows版本，无需配置Python、torch、cuda等环境，直接一键运行
 
 # 构建好的程序以及模型下载
 
-由于集成了CUDA环境，体积较大，放在了百度云盘，云盘里同时提供了VITS2.2的预训练模型
+由于集成了CUDA环境，体积较大，放在了百度云盘，云盘里同时提供了VITS2.2的预训练模型。
 
+链接: [https://pan.baidu.com/s/12hTGAVoxZWByOgFWQN-zuQ?pwd=6666](https://pan.baidu.com/s/12hTGAVoxZWByOgFWQN-zuQ?pwd=6666) 提取码: 6666 复制这段内容后打开百度网盘手机App，操作更方便哦
 
 # 使用方法
 
