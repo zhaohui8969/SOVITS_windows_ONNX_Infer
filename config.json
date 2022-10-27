@@ -1,0 +1,22 @@
+{
+  // Model config
+  "iHubertDim": 256,
+  "iHubertInputSampleRate": 16000,
+  "iVITSOutputSampleRate": 32000,
+  "iFinalOutSampleRate": 44100,
+  "sHuBERTONNXFileName": "hubert.onnx",
+  "sVITSONNXFileName": "354_epochs.onnx",
+  "sHubertInputTensorName": "source",
+  "sHubertOutputTensorName": "embed",
+
+  // benchmark config
+  "bBenchmark": true,
+  "iSkipWarmupStep": 5,
+  "iBenchMarkStep": 100,
+
+  // offline test
+  "bLocalTransTest": true,
+  "sLocalTestInputAudioFileName": "test30.wav",
+  "sLocalTestOutputAudioFileName": "test30_output.wav",
+  "iHTTPListenPort": 6842
+}

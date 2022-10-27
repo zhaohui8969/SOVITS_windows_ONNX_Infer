@@ -30,3 +30,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt-header-only)
 set(spdlog_DIR D:/codes/vcpkg/packages/spdlog_x64-windows/share/spdlog)
 find_package(spdlog CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
+
+set(jsoncpp_DIR D:/codes/vcpkg/packages/jsoncpp_x64-windows/share/jsoncpp)
+find_package(jsoncpp CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE jsoncpp_lib jsoncpp_object JsonCpp::JsonCpp)

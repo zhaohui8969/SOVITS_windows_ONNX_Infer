@@ -8,15 +8,6 @@
 
 #pragma comment(lib, "dxgi.lib")
 
-struct STRUCT_PROJECT_CONFIG {
-	wchar_t* sONNXModelFile;
-	std::string sONNXInputTensorName;
-	std::string sONNXOutputTensorName;
-	std::string sBindIpAddress;
-	std::string sBindPort;
-
-};
-
 #define LOG_INFO(...)  \
  do{char buf[256]; snprintf(buf, 256,__VA_ARGS__);  spdlog::info(buf);}while(0)
 

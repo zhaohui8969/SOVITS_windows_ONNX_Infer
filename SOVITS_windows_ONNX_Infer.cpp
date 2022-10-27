@@ -12,34 +12,69 @@
 #include "samplerate.h"
 #include "world/dio.h"
 #include "world/stonemask.h"
+#include "json/json.h"
 
 using namespace std::chrono;
 using namespace std;
 using namespace httplib;
 
+/*全局唯一*/
 const OrtApi* g_ort = NULL;
 httplib::Server svr;
-const int iHubertDim = 256;
-const int iHubertInputSampleRate = 16000;
-const int iVITSOutputSampleRate = 32000;
-const int iFinalOutSampleRate = 44100;
 const int iNumberOfChanel = 1;
 const size_t DATA_CHUNK_SIZE = 4;
+string sJsonConfigFileName = "config.json";
+
+/*模型配置*/
+int iHubertDim = 256;
+int iHubertInputSampleRate = 16000;
+int iVITSOutputSampleRate = 32000;
+int iFinalOutSampleRate = 44100;
+wchar_t sHuBERTONNXFileName[1024];
+wchar_t sVITSONNXFileName[1024];
+string sHubertInputTensorName = "source";
+string sHubertOutputTensorName = "embed";
+
+/*性能评估配置*/
+bool bBenchmark = false;
+int iSkipWarmupStep = 5;
+int iBenchMarkStep = 100;
+
+/*本地离线测试配置*/
+bool bLocalTransTest = false;
+string sLocalTestInputAudioFileName = "test30.wav";
+string sLocalTestOutputAudioFileName = "test30_output.wav";
+int iHTTPListenPort = 6842;
 
 /*
-void func_inspect_session(Ort::Session& session) {
-	Ort::AllocatorWithDefaultOptions ort_alloc;
-	size_t sInputCount = session.GetInputCount();
-	for (int i = 0; i < sInputCount; i++) {
-		auto typeInfo = session.GetInputTypeInfo(i);
-		auto name = session.GetInputName(i, ort_alloc);
-		auto typeInfo = session.GetInputTypeInfo(i);
-		auto typeAndShape = typeInfo.GetTensorTypeAndShapeInfo();
-		auto type = typeAndShape.GetElementType();
-		auto shape = typeAndShape.GetShape();
-	}
-}
+* 载入配置文件
 */
+void func_load_config_file() {
+	std::ifstream t_pc_file(sJsonConfigFileName, std::ios::binary);
+	std::stringstream buffer_pc_file;
+	buffer_pc_file << t_pc_file.rdbuf();
+
+	Json::Value jsonRoot;
+	buffer_pc_file >> jsonRoot;
+
+	iHubertDim = jsonRoot["iHubertDim"].asInt();
+	iHubertInputSampleRate = jsonRoot["iHubertInputSampleRate"].asInt();
+	iVITSOutputSampleRate = jsonRoot["iVITSOutputSampleRate"].asInt();
+	iFinalOutSampleRate = jsonRoot["iFinalOutSampleRate"].asInt();
+	mbstowcs(sHuBERTONNXFileName, jsonRoot["sHuBERTONNXFileName"].asString().c_str(), 1024);
+	mbstowcs(sVITSONNXFileName, jsonRoot["sVITSONNXFileName"].asString().c_str(), 1024);
+	sHubertInputTensorName = jsonRoot["sHubertInputTensorName"].asString();
+	sHubertOutputTensorName = jsonRoot["sHubertOutputTensorName"].asString();
+
+	bBenchmark = jsonRoot["bBenchmark"].asBool();
+	iSkipWarmupStep = jsonRoot["iSkipWarmupStep"].asInt();
+	iBenchMarkStep = jsonRoot["iBenchMarkStep"].asInt();
+
+	bLocalTransTest = jsonRoot["bLocalTransTest"].asBool();
+	sLocalTestInputAudioFileName = jsonRoot["sLocalTestInputAudioFileName"].asString();
+	sLocalTestOutputAudioFileName = jsonRoot["sLocalTestOutputAudioFileName"].asString();
+	iHTTPListenPort = jsonRoot["iHTTPListenPort"].asInt();
+}
 
 /*
 * 枚举DX设备
@@ -156,8 +191,8 @@ void func_hubert_get_embed(
 		Ort::Value::CreateTensor<float>(memory_info, fSamples.data(), fSamples.size(), iTensorSourceShape.data(), iTensorSourceShape.size())
 	);
 
-	const char* HuBERTInputNames[] = { "source" };
-	const char* HuBERTOutputNames[] = { "embed" };
+	const char* HuBERTInputNames[] = { sHubertInputTensorName.c_str()};
+	const char* HuBERTOutputNames[] = { sHubertOutputTensorName.c_str() };
 	*returnList = session.Run(runOptions, HuBERTInputNames, huberInputList.data(), huberInputList.size(), HuBERTOutputNames, 1);
 }
 
@@ -225,13 +260,11 @@ std::vector<Ort::Value> func_hubert_benchmark(
 	Ort::RunOptions& runOptions
 ) {
 	std::vector<long long> fUseTimeList;
-	int iSkipWarmupStep = 5;
-	int iBenchMarkStep = 100;
 	long long  tStart;
 	long long tUseTime;
 	long fAvgUseTime;
 
-	std::vector<float> fHubertTestInput(16000);
+	std::vector<float> fHubertTestInput(iHubertInputSampleRate);
 	fUseTimeList.clear();
 	float* fEmbedData;
 	int iEmbedSize;
@@ -461,8 +494,6 @@ std::vector<Ort::Value> func_vits_benchmark(
 	Ort::RunOptions& runOptions
 ) {
 	std::vector<long long> fUseTimeList;
-	int iSkipWarmupStep = 5;
-	int iBenchMarkStep = 100;
 	long long  tStart;
 	long long tUseTime;
 	long fAvgUseTime;
@@ -513,14 +544,10 @@ int main()
 {
 	LOG_INFO("程序启动!");
 	LOG_INFO("读取配置文件...");
+	func_load_config_file();
 
 	func_check_dx_device();
 	int ret = 0;
-
-	STRUCT_PROJECT_CONFIG projectConfig;
-	wchar_t sModelfile[100];
-	wcscpy(sModelfile, L"hubert.onnx");
-	projectConfig.sONNXModelFile = sModelfile;
 
 	g_ort = OrtGetApiBase()->GetApi(ORT_API_VERSION);
 	Ort::Env env{ ORT_LOGGING_LEVEL_WARNING, "SOVITS_windows_ONNX_Infer" };
@@ -541,14 +568,13 @@ int main()
 	}
 
 	LOG_INFO("载入HuBERT ONNX模型...");
-	Ort::Session hubertORTSession{ env, projectConfig.sONNXModelFile, sessionOptions };
+	Ort::Session hubertORTSession{ env, sHuBERTONNXFileName, sessionOptions};
 	LOG_INFO("载入完成...");
 
 	LOG_INFO("载入VITS ONNX模型...");
-	Ort::Session VITSORTSession{ env, L"121_epochs.onnx", sessionOptions };
+	Ort::Session VITSORTSession{ env, sVITSONNXFileName, sessionOptions };
 	LOG_INFO("载入完成...");
 
-	bool bBenchmark = false;
 	if (bBenchmark) {
 		LOG_INFO("跑分...");
 		// HUBERT benchmark
@@ -566,12 +592,11 @@ int main()
 		);
 	}
 
-	bool bLocalTransTest = false;
 	if (bLocalTransTest) {
 		LOG_INFO("进行本地离线处理测试...");
 		// 从音频文件读取数据
 		AudioFile<double> tmpAudioFile;
-		tmpAudioFile.load("test30.wav");
+		tmpAudioFile.load(sLocalTestInputAudioFileName);
 		int sampleRate = tmpAudioFile.getSampleRate();
 		int bitDepth = tmpAudioFile.getBitDepth();
 
@@ -670,7 +695,7 @@ int main()
 		audioFile.setBitDepth(24);
 		audioFile.setSampleRate(iVITSOutputSampleRate);
 		// 保存到文件
-		audioFile.save("test30_output.wav");
+		audioFile.save(sLocalTestOutputAudioFileName);
 		// 保存音频文件到内存
 		//std::vector<uint8_t> vModelInputMemoryBuffer = std::vector<uint8_t>(0);
 		//audioFile.saveToWaveMemory(&vModelInputMemoryBuffer);
@@ -816,7 +841,7 @@ int main()
 		res.set_content(returnData, contentType);
 		});
 
-	svr.listen("0.0.0.0", 6842);
+	svr.listen("0.0.0.0", iHTTPListenPort);
 
 	LOG_INFO("程序退出!");
 
