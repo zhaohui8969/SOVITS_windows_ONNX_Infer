@@ -290,7 +290,7 @@ int main()
 	LOG_INFO("启用CUDA...");
 	ret = enable_cuda(sessionOptions);
 	if (ret) {
-		LOG_INFO("CUD不可用");
+		LOG_INFO("CUDA不可用");
 	}
 	else {
 		LOG_INFO("CUDA启用成功");
