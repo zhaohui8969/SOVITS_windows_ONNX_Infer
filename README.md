@@ -60,6 +60,10 @@ SOVITS推理后端的Windows版本，无需配置Python、torch、cuda等环境�
 
 程序处理流程为`接收到音频` -> `重采样到16Khz` -> `HUBERT提取特征` / `World提取F0特征` -> `VITS生成音频`
 
+# pytorch模型转ONNX
+
+可以参考这个代码[onnx_export.py](https://github.com/IceKyrin/sovits_f0_infer/blob/main/onnx_export.py)
+
 # 使用的第三方技术
 
 - [onnxruntime](https://github.com/microsoft/onnxruntime)
