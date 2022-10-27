@@ -159,6 +159,14 @@ std::vector<int64_t> func_prepare_f0(
 	std::vector<double> t;
 	func_get_dio(dSamples, sr, fDefaultF0Floor, iF0Ceil, channels_in_octave, frame_period, speed, allowed_range, &f0, &t);
 	f0 = func_stonemask(dSamples, &f0, &t, sr);
+	// 为什么要除以3？
+	std::transform(
+		f0.begin(),
+		f0.end(),
+		f0.begin(),
+		[](double i) {
+			return i / 3.f;
+		});
 	std::transform(
 		f0.begin(),
 		f0.end(),

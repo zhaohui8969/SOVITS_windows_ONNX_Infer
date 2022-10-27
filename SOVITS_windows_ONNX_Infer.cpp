@@ -385,7 +385,7 @@ int main()
 		// 将音频数据转为double，用于获取F0
 		std::vector<double> dAudioSamples(fHubertTestInput.begin(), fHubertTestInput.end());
 		//std::transform(fHubertTestInput.begin(), fHubertTestInput.end(), dAudioSamples.begin(), [](float i) {return (double)i; });
-		iTestPitch = func_prepare_f0(dAudioSamples, sampleRate, iHiddentUnitNum, iPitchTrans);
+		iTestPitch = func_prepare_f0(dAudioSamples, iHubertInputSampleRate, iHiddentUnitNum, iPitchTrans);
 		std::vector<int64_t> iTestSid(1);
 		iTestSid[0] = 0;
 
