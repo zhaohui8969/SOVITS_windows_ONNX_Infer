@@ -8,7 +8,7 @@ project ("SOVITS_windows_ONNX_Infer")
 FILE(GLOB WORLD_SRCS "world_src/*.cpp")
 FILE(GLOB WORLD_HEADERS "world_src/world/*.h")
 # 将源代码添加到此项目的可执行文件。
-add_executable (${PROJECT_NAME} "SOVITS_windows_ONNX_Infer.cpp" "SOVITS_windows_ONNX_Infer.h" ${WORLD_SRCS} ${WORLD_HEADERS})
+add_executable (${PROJECT_NAME} "SOVITS_windows_ONNX_Infer.cpp" "SOVITS_windows_ONNX_Infer.h" ${WORLD_SRCS} ${WORLD_HEADERS} "audio_utils.cpp" "audio_utils.h" "dx_utils.cpp" "dx_utils.h" "utils.cpp" "utils.h" "f0_utils.cpp" "f0_utils.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
